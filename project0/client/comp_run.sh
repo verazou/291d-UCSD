@@ -1,7 +1,6 @@
-WORK_DIR=$1
-DATA=$2
-SERV_IP=$3
-SERV_PORT=$4
+DATA=$1
+SERV_IP=$2
+SERV_PORT=$3
 
-g++ -o $WORK_DIR/catclient $WORK_DIR/client.cpp
-$WORK_DIR/catclient $DATA $SERV_IP $SERV_PORT
+g++ -o /root/catclient /root/client.cpp
+/root/catclient $DATA $SERV_IP $SERV_PORT

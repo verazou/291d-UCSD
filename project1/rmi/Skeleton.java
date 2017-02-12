@@ -1,6 +1,9 @@
 package rmi;
 
 import java.net.*;
+import java.lang.reflect.Method;
+import java.util.*;
+//import java.util.Arrays;
 
 /** RMI skeleton
 
@@ -26,6 +29,34 @@ import java.net.*;
 */
 public class Skeleton<T>
 {
+    private Class<T> serverClass = null;
+    private T server=null;
+    private String hostName=null;
+    private int portNo=0;
+    private volatile boolean running=false;
+    private ServerSocket listen_socket=null;
+
+    public int getPortNo(){return this.portNo;}
+    public String getHostName(){return this.hostName;}
+    public T getServer(){return this.server;}
+    public Class<T> getServerClass(){return this.serverClass;}
+    public synchronized boolean isRunning(){return this.running;}
+    public synchronized void stopRunning(){running=false;}
+    public synchronized void startRunning(){running=true;}
+
+    private void checkclass(Class<T> c){
+        if(c==null) throw new NullPointerException();
+        if(!c.isInterface()){
+            throw new Error("Given class is not an interface");
+        }else{
+        boolean remotInterface=true;
+        Method[] methods=c.getMethods();
+        for(Method m:methods){
+            List<Class<?>>exceptionList=Arrays.asList(m.getExceptionTypes());
+            if(!exceptionList.contains(RMIException.class))remotInterface=false;
+        }
+        if(!remotInterface)throw new Error("Given class is not a remote interface");}
+    }
     /** Creates a <code>Skeleton</code> with no initial server address. The
         address will be determined by the system when <code>start</code> is
         called. Equivalent to using <code>Skeleton(null)</code>.
@@ -45,9 +76,12 @@ public class Skeleton<T>
         @throws NullPointerException If either of <code>c</code> or
                                      <code>server</code> is <code>null</code>.
      */
-    public Skeleton(Class<T> c, T server)
-    {
-        throw new UnsupportedOperationException("not implemented");
+    
+    public Skeleton(Class<T> c, T server) {
+        checkclass(c);
+        if(server==null)throw new NullPointerException();
+        this.serverClass=c;
+        this.server=server;
     }
 
     /** Creates a <code>Skeleton</code> with the given initial server address.
@@ -68,9 +102,14 @@ public class Skeleton<T>
         @throws NullPointerException If either of <code>c</code> or
                                      <code>server</code> is <code>null</code>.
      */
-    public Skeleton(Class<T> c, T server, InetSocketAddress address)
-    {
-        throw new UnsupportedOperationException("not implemented");
+    public Skeleton(Class<T> c, T server, InetSocketAddress address){
+        checkclass(c);
+        if(server==null)throw new NullPointerException();
+        this.serverClass=c;
+        this.server=server;
+        if(address!=null){
+        this.portNo=address.getPort();
+        this.hostName=address.getHostName();}
     }
 
     /** Called when the listening thread exits.
@@ -91,9 +130,7 @@ public class Skeleton<T>
         @param cause The exception that stopped the skeleton, or
                      <code>null</code> if the skeleton stopped normally.
      */
-    protected void stopped(Throwable cause)
-    {
-    }
+    protected void stopped(Throwable cause) {return;}
 
     /** Called when an exception occurs at the top level in the listening
         thread.
@@ -110,10 +147,7 @@ public class Skeleton<T>
         @return <code>true</code> if the server is to resume accepting
                 connections, <code>false</code> if the server is to shut down.
      */
-    protected boolean listen_error(Exception exception)
-    {
-        return false;
-    }
+    protected boolean listen_error(Exception exception){return false;}
 
     /** Called when an exception occurs at the top level in a service thread.
 
@@ -122,9 +156,7 @@ public class Skeleton<T>
 
         @param exception The exception that occurred.
      */
-    protected void service_error(RMIException exception)
-    {
-    }
+    protected void service_error(RMIException exception){return;}
 
     /** Starts the skeleton server.
 
@@ -139,9 +171,22 @@ public class Skeleton<T>
                              or when the server has already been started and has
                              not since stopped.
      */
-    public synchronized void start() throws RMIException
-    {
-        throw new UnsupportedOperationException("not implemented");
+    public synchronized void start() throws RMIException {
+        if(this.running==true)
+            throw new RMIException("Server is running now!");
+        else{
+        this.startRunning();
+        try{
+            listen_socket=new ServerSocket(this.portNo);
+            if(this.hostName==null)this.hostName=listen_socket.getInetAddress().getHostName();
+            this.portNo=listen_socket.getLocalPort();
+            listenThread listen_thread = new listenThread(this, serverClass,listen_socket);
+            listen_thread.start();
+        }catch(Throwable err){
+            System.out.println("Error: " + err.getMessage());
+            err.printStackTrace();
+        }
+       }
     }
 
     /** Stops the skeleton server, if it is already running.
@@ -153,8 +198,13 @@ public class Skeleton<T>
         <code>stopped</code> is called at that point. The server may then be
         restarted.
      */
-    public synchronized void stop()
-    {
-        throw new UnsupportedOperationException("not implemented");
+    public synchronized void stop(){
+        try{
+            this.stopRunning();
+            listen_socket.close();
+        }catch(Throwable err){
+            System.out.println("Error: " + err.getMessage());
+            err.printStackTrace();
+        }
     }
 }
